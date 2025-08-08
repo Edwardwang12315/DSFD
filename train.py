@@ -32,23 +32,23 @@ parser = argparse.ArgumentParser(
     description='DSFD face Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
 parser.add_argument('--batch_size',
-                    default=8, type=int, # server上为8 我的电脑上2
+                    default=3, type=int, # server上为8 我的电脑上2
                     help='Batch size for training')
 parser.add_argument('--model',
-                    default='ciconv', type=str,
+                    default='dark', type=str,
                     choices=['ciconv','dark', 'vgg', 'resnet50', 'resnet101', 'resnet152'],
                     help='model for training')
 parser.add_argument('--resume',
-                    default='../../model/forDAINet/ciconv/dsfd.pth', type=str, # '../../model/forDAINet/ciconv/dsfd.pth'
+                    default=None, type=str, # '../../model/forDAINet/dark/dsfd_v2.3.pth'
                     help='Checkpoint state_dict file to resume training from')
 parser.add_argument('--num_workers',
-                    default=20, type=int, # server上为20 我的电脑上为4
+                    default=4, type=int, # server上为20 我的电脑上为4
                     help='Number of workers used in dataloading')
 parser.add_argument('--cuda',
                     default=True, type=bool,
                     help='Use CUDA to train model')
 parser.add_argument('--lr', '--learning-rate',
-                    default=5e-4, type=float,
+                    default=5e-6, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum',
                     default=0.9, type=float,
@@ -159,8 +159,10 @@ def train():
             net.conf_pal1.apply(net.weights_init)
             net.loc_pal2.apply(net.weights_init)
             net.conf_pal2.apply(net.weights_init)
-        net.ciconv2d.apply(net.weights_init)
-        net.coder.apply(net.weights_init)
+        # net.ciconv2d.apply(net.weights_init)
+        # net.coder.apply(net.weights_init)
+
+    LoadLocalW(net,'../../model/forDAINet/dark/dsfd_v2.3.pth')
 
     # Scaling the lr
     # 设置了根据批次大小和gpu数量调整学习率的机制
@@ -176,8 +178,8 @@ def train():
         param_group += [{'params': dsfd_net.conf_pal1.parameters(), 'lr': lr}]
         param_group += [{'params': dsfd_net.loc_pal2.parameters(), 'lr': lr}]
         param_group += [{'params': dsfd_net.conf_pal2.parameters(), 'lr': lr}]
-    param_group += [{'params': dsfd_net.ciconv2d.parameters(), 'lr': lr / 10.}]
-    param_group += [{'params': dsfd_net.coder.parameters(), 'lr': lr}]
+    # param_group += [{'params': dsfd_net.ciconv2d.parameters(), 'lr': lr / 10.}]
+    # param_group += [{'params': dsfd_net.coder.parameters(), 'lr': lr}]
 
     optimizer = optim.SGD(param_group, lr=lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
@@ -227,7 +229,7 @@ def train():
             # 前向传播两个分支
             t0 = time.time()
 
-            out, detail = net(images)
+            out = net(images)
 
             # backprop
             optimizer.zero_grad()
@@ -307,10 +309,7 @@ def val(epoch, net, dsfd_net,  criterion):
             with torch.no_grad() :
                 targets = [ann for ann in targets]
         
-        # ZSDA训练时用正常亮度训练，退化图像用于测试
-        img_dark = torch.stack([Low_Illumination_Degrading(images[i])[0] for i in range(images.shape[0])],
-                               dim=0)
-        out, detail = net.module.test_forward(img_dark)
+        out = net.module.test_forward(images)
 
         loss_l_pa1l, loss_c_pal1 = criterion(out[:3], targets)
         loss_l_pa12, loss_c_pal2 = criterion(out[3:], targets)

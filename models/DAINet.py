@@ -116,21 +116,21 @@ class DSFD(nn.Module):
 
 		# the reflectance decoding branch
 		# 反射图解码模块
-		self.ref = nn.Sequential(
-			nn.Conv2d(64, 64, kernel_size=3, padding=1),
-			nn.ReLU(inplace=True),
-			Interpolate(2),#上采样
-			nn.Conv2d(64, 3, kernel_size=3, padding=1),
-			nn.ReLU(inplace=True),
-			nn.Conv2d(3, 1, kernel_size=1, padding=0),
-			# nn.Sigmoid()
-			# nn.BatchNorm2d(1)
-		)
-		self.ciconv2d_l = CIConv2d(invariant = 'W',k = 3,scale=0.0)
-		self.ciconv2d_d = CIConv2d(invariant = 'W',k = 3,scale=0.0)
+		# self.ref = nn.Sequential(
+		# 	nn.Conv2d(64, 64, kernel_size=3, padding=1),
+		# 	nn.ReLU(inplace=True),
+		# 	Interpolate(2),#上采样
+		# 	nn.Conv2d(64, 3, kernel_size=3, padding=1),
+		# 	nn.ReLU(inplace=True),
+		# 	nn.Conv2d(3, 1, kernel_size=1, padding=0),
+		# 	# nn.Sigmoid()
+		# 	# nn.BatchNorm2d(1)
+		# )
+		# self.ciconv2d_l = CIConv2d(invariant = 'W',k = 3,scale=0.0)
+		# self.ciconv2d_d = CIConv2d(invariant = 'W',k = 3,scale=0.0)
 		
-		# 计算teacher模型和学生模型的KL散度
-		self.KL = DistillKL(T=4.0)
+		# # 计算teacher模型和学生模型的KL散度
+		# self.KL = DistillKL(T=4.0)
 
 		if self.phase == 'test':
 			self.softmax = nn.Softmax(dim=-1)
@@ -163,36 +163,7 @@ class DSFD(nn.Module):
 		
 		for k in range( 16 ) :  # 检测时为 16 解码时为 5
 			_x = self.vgg[ k ]( _x )
-			# x检测通路的输入
-			if k == 4 :
-				_x_dark = _x
-
-		R = self.ref( _x_dark[ 0 :1 ] )
-		
-		# print( '暗图' )
-		# image = np.transpose( R[ 0 ].detach().cpu().numpy() , (1 , 2 , 0) )  # 调整维度顺序 [C, H, W] → [H, W, C]
-		# image = (image * 255).astype( np.uint8 )
-		# plt.imshow( image )
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'test_暗图.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		
-		# _x_c = x.clone()
-		# R_c = self.ciconv2d_d(_x_c)
-		# print( '分解图' )
-		# # 以下为单通道边缘图显示方法
-		# image = R_c[ 0 ].detach().cpu().numpy().squeeze()  # 维度 [H, W]
-		# # 归一化到对称范围
-		# vmax = np.max( np.abs( image ) )
-		# image_normalized = image / vmax  # 范围[-1, 1]
-		# # 使用红蓝颜色映射可视化
-		# plt.imshow( image_normalized , cmap = 'RdBu' , vmin = -1 , vmax = 1 )
-		
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'test_ciconv.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		# exit()
-		
+	
 		if True  :
 			# the following is the rest of the original detection pipeline
 			of1 = _x
@@ -308,10 +279,10 @@ class DSFD(nn.Module):
 						conf_pal2.view( conf_pal2.size( 0 ) , -1 , self.num_classes ) ,
 						self.priors_pal2)
 		
-		return output , R
+		return output
 	
 	# during training, the model takes the paired images, and their pseudo GT illumination maps from the Retinex Decom Net
-	def forward(self, x, x_light):
+	def forward(self, x):
 		size = x.size()[2:]
 		pal1_sources = list()
 		pal2_sources = list()
@@ -320,79 +291,9 @@ class DSFD(nn.Module):
 		loc_pal2 = list()
 		conf_pal2 = list()
 
-		# 检测主线和Retinex主线分离
-		# apply vgg up to conv4_3 relu
-		# x输入暗图 xlight输入亮图
-		_x_light = x_light.clone()
 		_x = x.clone()
-		for k in range(5):
-			_x_light = self.vgg[k](_x_light)
-
 		for k in range(16) if True  else range(5) : # 检测时为 16 解码时为 5
 			_x = self.vgg[k](_x)
-			# x检测通路的输入
-			if k == 4:
-				_x_dark = _x
-				# xlight、xdark分解通路的输入
-
-		# extract the shallow features and forward them into the reflectance branch:
-		# R_dark、R_light是对应的反射图
-		R_dark = self.ref(_x_dark)
-		R_light = self.ref(_x_light)
-		
-		_x_dark = _x_dark.flatten(start_dim=2).mean(dim=-1)
-		_x_light = _x_light.flatten(start_dim=2).mean(dim=-1)
-		# 经过网络提取特征后的KL散度损失
-		loss_mutual = cfg.WEIGHT.MC * (self.KL( _x_light , _x_dark ) + self.KL( _x_dark , _x_light ))
-
-		# ''' 显示部分（调试用） '''
-		# print( 'train_暗图' )
-		# # 以下为单通道边缘图显示方法
-		# image = R_dark[ 0 ].detach().cpu().numpy().squeeze()  # 维度 [H, W]
-		#
-		# # 新增
-		# # 保存图像数据
-		# # np.savetxt( 'train_暗图.txt' , image)
-		# # 计算图像数据特征
-		# # max = np.max(image)
-		# # min = np.min(image)
-		# # mean = np.mean(image)
-		# # var = np.var(image)
-		# # print(f'归一化前:  最大值：{max} | 最小值：{min} |均值：{mean} | 均方差：{var}')
-		#
-		# # 归一化到对称范围
-		# vmax = np.max( np.abs( image ) )
-		# image_normalized = image / vmax  # 范围[-1, 1]
-		#
-		# # 新增
-		# # 保存图像数据
-		# # np.savetxt( 'train_暗图_normalized.txt' , image_normalized)
-		# # 计算图像数据特征
-		# # max_normalized = np.max(image_normalized)
-		# # min_normalized = np.min(image_normalized)
-		# # mean_normalized = np.mean(image_normalized)
-		# # var_normalized = np.var(image_normalized)
-		# # print(f'归一化后:  最大值：{max_normalized} | 最小值：{min_normalized} |均值：{mean_normalized} | 均方差：{var_normalized}')
-		#
-		# # 使用红蓝颜色映射可视化
-		# plt.imshow( image_normalized , cmap = 'RdBu' , vmin = -1 , vmax = 1 )
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'train_暗图.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		#
-		#
-		# print( 'train_亮图' )
-		# # 以下为单通道边缘图显示方法
-		# image = R_light[ 0 ].detach().cpu().numpy().squeeze()  # 维度 [H, W]
-		# # 归一化到对称范围
-		# vmax = np.max( np.abs( image ) )
-		# image_normalized = image / vmax  # 范围[-1, 1]
-		# # 使用红蓝颜色映射可视化
-		# plt.imshow( image_normalized , cmap = 'RdBu' , vmin = -1 , vmax = 1 )
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'train_亮图.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		
 		if True :
 			# the following is the rest of the original detection pipeline
 			of1 = _x
@@ -508,63 +409,8 @@ class DSFD(nn.Module):
 					conf_pal2.view(conf_pal2.size(0), -1, self.num_classes),
 					self.priors_pal2)
 
-		# CIconv生成参考
-		_x_light = x_light.clone()
-		_x = x.clone()
-		R_dark_c = self.ciconv2d_d(_x)
-		R_light_c = self.ciconv2d_l(_x_light)
-		
-		# ''' 显示部分（调试用） '''
-		# print( 'ciconv_暗图' )
-		# # 以下为单通道边缘图显示方法
-		# image = R_dark_c[ 0 ].detach().cpu().numpy().squeeze()  # 维度 [H, W]
-		#
-		# # 新增
-		# # 保存图像数据
-		# # np.savetxt( 'ciconv_暗图.txt' , image)
-		# # 计算图像数据特征
-		# # max = np.max( image )
-		# # min = np.min( image )
-		# # mean = np.mean( image )
-		# # var = np.var( image )
-		# # print( f'归一化前:  最大值：{max} | 最小值：{min} |均值：{mean} | 均方差：{var}' )
-		#
-		# # 归一化到对称范围
-		# vmax = np.max( np.abs( image ) )
-		# image_normalized = image / vmax  # 范围[-1, 1]
-		#
-		# # 新增
-		# # 保存图像数据
-		# # np.savetxt( 'ciconv_暗图_normalized.txt' , image_normalized)
-		# # 计算图像数据特征
-		# # max_normalized = np.max( image_normalized )
-		# # min_normalized = np.min( image_normalized )
-		# # mean_normalized = np.mean( image_normalized )
-		# # var_normalized = np.var( image_normalized )
-		# # print( f'归一化后:  最大值：{max_normalized} | 最小值：{min_normalized} |均值：{mean_normalized} | 均方差：{var_normalized}' )
-		#
-		# # 使用红蓝颜色映射可视化
-		# plt.imshow( image_normalized , cmap = 'RdBu' , vmin = -1 , vmax = 1 )
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'ciconv_暗图.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		#
-		#
-		# print( 'ciconv_亮图' )
-		# # 以下为单通道边缘图显示方法
-		# image = R_light_c[ 0 ].detach().cpu().numpy().squeeze()  # 维度 [H, W]
-		# # 归一化到对称范围
-		# vmax = np.max( np.abs( image ) )
-		# image_normalized = image / vmax  # 范围[-1, 1]
-		# # 使用红蓝颜色映射可视化
-		# plt.imshow( image_normalized , cmap = 'RdBu' , vmin = -1 , vmax = 1 )
-		# plt.axis( 'off' )
-		# # 保存图像到文件
-		# plt.savefig( f'ciconv_亮图.png' , bbox_inches = 'tight' , pad_inches = 0 , dpi = 800 )
-		# exit()
-		
 		if True :
-			return output,[ R_dark , R_light , R_dark_c , R_light_c ] , loss_mutual
+			return output
 		else:
 			return x,[ R_dark , R_light , R_dark_c , R_light_c ] , loss_mutual
 
