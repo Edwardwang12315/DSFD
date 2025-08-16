@@ -69,7 +69,7 @@ _C.WEIGHT.DCOM = 0.1
 
 # face config
 _C.FACE = EasyDict()
-_C.FACE.TRAIN_FILE = '../../dataset/WiderFace/train_annotations.txt'
+_C.FACE.TRAIN_FILE = '../../dataset/DarkFace_finetune/train_annotations.txt'
 # _C.FACE.TRAIN_FILE = '../../dataset/WiderFace/wider_face_train.txt'
 _C.FACE.VAL_FILE = '../../dataset/DarkFace_finetune/test_annotations.txt'
 # _C.FACE.VAL_FILE = '../../dataset/WiderFace/wider_face_val.txt'

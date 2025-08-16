@@ -92,25 +92,3 @@ On Dark Face:
 On ExDark:
 
 - Our experiments are based on the codebase of [MAET](https://github.com/cuiziteng/ICCV_MAET). You only need to replace the checkpoint with [ours](https://drive.google.com/file/d/1g74-aRdQP0kkUe4OXnRZCHKqNgQILA6r/view?usp=drive_link) for evaluation.
-
-# 调试记录
-## 2025.1.22
-- test输出只有预测txt文件，补充了把预测框绘制出来的步骤
-- 简单筛选了一下，置信度小于0.3的不显示，效果很好
-- 以上测试用的是作者提供的权重文件，只适用于人脸检测
-- _C.TOP_K = 20时，mAP=14.19
-- _C.TOP_K = 750时，mAP=14.21
-
-## 2025.4.10
-- 完美收敛的结果应该是
-- ->> pal1 conf loss:1.4184 || pal1 loc loss:0.6319
-- ->> pal2 conf loss:1.1226 || pal2 loc loss:0.8053
-- ->> mutual loss:0.0051 || enhanced loss:0.0348
-- 训练的结果还有一段距离
-- ->> pal1 conf loss:1.3814 || pal1 loc loss:2.4703
-- ->> pal2 conf loss:2.0561 || pal2 loc loss:2.3194
-- ->> mutual loss:0.0049 || enhanced loss:0.0627
-
-## 2025.4.15
-- 直接训练ref部分，测试这个模块能否实现效果
-  - 方案一：去除检测模块，直接训练vgg2和decoder
