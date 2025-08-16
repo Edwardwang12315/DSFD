@@ -39,7 +39,7 @@ parser.add_argument('--model',
                     choices=['ciconv','dark', 'vgg', 'resnet50', 'resnet101', 'resnet152'],
                     help='model for training')
 parser.add_argument('--resume',
-                    default='../../model/forDAINet/ciconv/dsfd.pth', type=str, # '../../model/forDAINet/ciconv/dsfd.pth'
+                    default=None, type=str, # '../../model/forDAINet/ciconv/dsfd.pth'
                     help='Checkpoint state_dict file to resume training from')
 parser.add_argument('--num_workers',
                     default=20, type=int, # server上为20 我的电脑上为4
